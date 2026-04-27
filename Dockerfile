@@ -21,9 +21,6 @@ RUN curl -L https://github.com/espocrm/espocrm/releases/download/9.1.5/EspoCRM-9
     && chmod -R 775 /var/www/html/custom \
     && rm -rf /tmp/espocrm /tmp/espocrm.zip
 
-# Guarda copia do /data original da imagem para restaurar no volume
-RUN cp -r /var/www/html/data /var/www/html/data_default
-
 # Configura Apache para permitir .htaccess
 RUN echo '<Directory /var/www/html>\n    AllowOverride All\n    Require all granted\n</Directory>' \
     > /etc/apache2/conf-available/espocrm.conf \
@@ -34,21 +31,9 @@ RUN echo '* * * * * www-data cd /var/www/html; /usr/local/bin/php -f cron.php > 
     > /etc/cron.d/espocrm \
     && chmod 0644 /etc/cron.d/espocrm
 
-# Script de inicializacao: corrige permissoes do volume e sobe cron + apache
-RUN printf '#!/bin/bash\n\
-set -e\n\
-# Se o volume estiver vazio, copia os arquivos padrao\n\
-if [ ! -f "/var/www/html/data/config.php" ] && [ -d "/var/www/html/data_default" ]; then\n\
-    echo "Inicializando diretorio data..."\n\
-    cp -rn /var/www/html/data_default/. /var/www/html/data/\n\
-fi\n\
-# Corrige permissoes do volume\n\
-find /var/www/html/data -type d -exec chmod 775 {} +\n\
-chown -R www-data:www-data /var/www/html/data\n\
-# Sobe cron e apache\n\
-service cron start\n\
-exec apache2-foreground\n' > /start.sh \
-    && chmod +x /start.sh
+# Cria config.php via variaveis de ambiente no start
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 EXPOSE 80
 CMD ["/start.sh"]
