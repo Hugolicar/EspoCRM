@@ -1,8 +1,8 @@
 FROM php:8.2-apache
 
-# Instala dependencias do sistema + libpq-dev para PostgreSQL
+# Instala dependencias do sistema + cron
 RUN apt-get update && apt-get install -y \
-    unzip curl \
+    unzip curl cron \
     libzip-dev libpng-dev libjpeg-dev libfreetype6-dev \
     libonig-dev libxml2-dev libcurl4-openssl-dev \
     libpq-dev \
@@ -26,5 +26,15 @@ RUN echo '<Directory /var/www/html>\n    AllowOverride All\n    Require all gran
     > /etc/apache2/conf-available/espocrm.conf \
     && a2enconf espocrm
 
+# Configura crontab para tarefas agendadas do EspoCRM
+RUN echo '* * * * * www-data cd /var/www/html; /usr/local/bin/php -f cron.php > /dev/null 2>&1' \
+    > /etc/cron.d/espocrm \
+    && chmod 0644 /etc/cron.d/espocrm \
+    && crontab /etc/cron.d/espocrm
+
+# Script de inicializacao que sobe cron + apache
+RUN echo '#!/bin/bash\nservice cron start\napache2-foreground' > /start.sh \
+    && chmod +x /start.sh
+
 EXPOSE 80
-CMD ["apache2-foreground"]
+CMD ["/start.sh"]
